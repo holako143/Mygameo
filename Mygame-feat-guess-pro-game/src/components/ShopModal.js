@@ -1,22 +1,17 @@
 import { useState, useEffect } from 'react';
 import storeItems from '@/lib/store';
 
-export default function ShopModal({ onClose, user }) {
+export default function ShopModal({ onClose, user, players }) {
   const [items, setItems] = useState([]);
   const [userPoints, setUserPoints] = useState(0);
 
   useEffect(() => {
     setItems(storeItems);
-    // In a real app, you'd fetch the user's points from your backend
-    // For now, let's assume the user object passed in is up-to-date
-    // A better approach would be to have a global state or fetch from an API endpoint.
-    const fetchPoints = async () => {
-        const res = await fetch(`/api/user/profile?email=${user.email}`);
-        const data = await res.json();
-        if(data) setUserPoints(data.points);
+    const currentPlayer = players.find(p => p.name === user.name);
+    if (currentPlayer) {
+      setUserPoints(currentPlayer.points);
     }
-    fetchPoints();
-  }, [user]);
+  }, [user, players]);
 
   const handlePurchase = (item) => {
     // Placeholder for purchase logic

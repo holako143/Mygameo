@@ -30,6 +30,28 @@ const SocketHandler = (req, res) => {
         console.log(`${user.name} joined room: ${room}`);
       });
 
+      // Start an AI game
+      socket.on('startAiGame', ({ room, difficulty }) => {
+        if (rooms[room]) {
+          const aiId = 'ai-player';
+          rooms[room].players[aiId] = {
+            id: aiId,
+            name: `AI (${difficulty})`,
+            points: 0,
+            bravePoints: 0,
+            image: `https://i.pravatar.cc/150?u=ai-player`,
+          };
+          io.to(room).emit('players', Object.values(rooms[room].players));
+
+          // AI creates the game
+          // TODO: Generate more interesting options
+          const options = ['A', 'B', 'C'];
+          const correct = Math.floor(Math.random() * 3);
+          rooms[room].game = { options, correct, creatorId: aiId };
+          socket.emit('newGame', { options, creatorId: aiId });
+        }
+      });
+
       // Start a new game
       socket.on('startGame', ({ room, options, correct }) => {
         if (rooms[room]) {
@@ -37,15 +59,38 @@ const SocketHandler = (req, res) => {
           rooms[room].game = { options, correct, creatorId };
           socket.to(room).emit('newGame', { options, creatorId });
           console.log(`Game started in room ${room} by ${creatorId}`);
+
+          // If AI is in the room, it makes a guess
+          const aiPlayer = Object.values(rooms[room].players).find(p => p.id === 'ai-player');
+          if (aiPlayer) {
+            setTimeout(() => {
+              const difficulty = aiPlayer.name.match(/\((.*)\)/)[1];
+              let aiGuess;
+              const random = Math.random();
+
+              if (difficulty === 'easy' && random > 0.33) {
+                aiGuess = (correct + 1) % 3;
+              } else if (difficulty === 'medium' && random > 0.66) {
+                aiGuess = (correct + 1) % 3;
+              } else if (difficulty === 'hard' && random > 0.9) {
+                aiGuess = (correct + 1) % 3;
+              } else {
+                aiGuess = correct;
+              }
+
+              io.to(room).emit('chat', { name: 'AI', msg: `I guess... ${options[aiGuess]}` });
+              // Simulate guess from AI
+              handleGuess(room, aiGuess, aiPlayer.id);
+            }, 2000); // 2-second delay for realism
+          }
         }
       });
 
-      // Handle a guess. Database operations are removed.
-      socket.on('guess', ({ room, guess }) => {
+      const handleGuess = (room, guess, guesserId) => {
         if (rooms[room] && rooms[room].game) {
           const { game, players } = rooms[room];
           const creator = players[game.creatorId];
-          const guesser = players[socket.id];
+          const guesser = players[guesserId];
 
           if (!creator || !guesser) return;
 
@@ -70,6 +115,11 @@ const SocketHandler = (req, res) => {
           rooms[room].game = null;
           io.to(room).emit('players', Object.values(players));
         }
+      }
+
+      // Handle a guess. Database operations are removed.
+      socket.on('guess', ({ room, guess }) => {
+        handleGuess(room, guess, socket.id);
       });
 
       // Handle judgment submission. Database operations are removed.
