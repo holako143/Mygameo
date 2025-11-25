@@ -5,7 +5,6 @@ import Sidebar from './Sidebar';
 import ScoreBar from './ScoreBar';
 import GameBox from './GameBox';
 import GuessInput from './GuessInput';
-import JudgmentBox from './JudgmentBox';
 import ChatBox from './ChatBox';
 import ShopModal from './ShopModal';
 import Toast from './Toast';
@@ -14,18 +13,21 @@ import DifficultyModal from './DifficultyModal';
 import { motion } from 'framer-motion';
 import { useContext } from 'react';
 import { LanguageContext } from '@/pages/_app';
+import { usePlayer } from '@/context/PlayerContext';
 import achievements from '@/lib/achievements';
 import AchievementsModal from './AchievementsModal';
+import DareModal from './DareModal';
 
 export default function GameScreen({ user }) {
   const { t, language } = useContext(LanguageContext);
+  const { addPoints } = usePlayer();
   const socket = useSocket();
   const [players, setPlayers] = useState([]);
   const [room, setRoom] = useState('public');
   const [sidebar, setSidebar] = useState(false);
-  const [gameState, setGameState] = useState('lobby'); // lobby, creating, guessing, judgment
+  const [gameState, setGameState] = useState('lobby'); // lobby, creating, guessing
   const [gameData, setGameData] = useState(null);
-  const [judgments, setJudgments] = useState([]);
+  const [currentDare, setCurrentDare] = useState(null);
   const [toast, setToast] = useState('');
   const [showShop, setShowShop] = useState(false);
   const [showDifficultyModal, setShowDifficultyModal] = useState(false);
@@ -63,28 +65,23 @@ export default function GameScreen({ user }) {
 
     socket.on('result', res => {
       setToast(t(res.msg.key, res.msg.params));
-      if(res.judgments) {
-        setJudgments(res.judgments);
-        setGameState('judgment');
+      if (res.dare) {
+        setCurrentDare(res.dare);
         playLoseSound();
       } else {
         // Winner
+        addPoints(10); // Award 10 points for a win
         setWins(wins + 1);
         const aiPlayer = players.find(p => p.id === 'ai-player');
         if (aiPlayer) {
           const difficulty = aiPlayer.name.match(/\((.*)\)/)[1];
           setAiWins({ ...aiWins, [difficulty]: aiWins[difficulty] + 1 });
         }
-        setGameState('lobby');
         playWinSound();
       }
+      setGameState('lobby');
       setGameData(null); // Reset game data
       setShowPlayAgain(true);
-    });
-
-    socket.on('judgmentDone', () => {
-      setJudgments([]);
-      setGameState('lobby');
     });
 
     return () => {
@@ -109,6 +106,38 @@ export default function GameScreen({ user }) {
     };
     checkAchievements();
   }, [wins, aiWins, unlockedAchievements, t]);
+
+  useEffect(() => {
+    // Load stats from local storage on component mount
+    try {
+      const savedWins = localStorage.getItem('wins');
+      const savedAiWins = localStorage.getItem('aiWins');
+      const savedUnlockedAchievements = localStorage.getItem('unlockedAchievements');
+
+      if (savedWins) {
+        setWins(JSON.parse(savedWins));
+      }
+      if (savedAiWins) {
+        setAiWins(JSON.parse(savedAiWins));
+      }
+      if (savedUnlockedAchievements) {
+        setUnlockedAchievements(JSON.parse(savedUnlockedAchievements));
+      }
+    } catch (error) {
+      console.error("Failed to load data from localStorage", error);
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+  useEffect(() => {
+    // Save stats to local storage whenever they change
+    try {
+      localStorage.setItem('wins', JSON.stringify(wins));
+      localStorage.setItem('aiWins', JSON.stringify(aiWins));
+      localStorage.setItem('unlockedAchievements', JSON.stringify(unlockedAchievements));
+    } catch (error) {
+      console.error("Failed to save data to localStorage", error);
+    }
+  }, [wins, aiWins, unlockedAchievements]);
 
   const handleCreateGame = () => {
     setGameState('creating');
@@ -177,17 +206,17 @@ export default function GameScreen({ user }) {
 
           {gameState === 'creating' && <GameBox socket={socket} user={user} onCancel={handleCancelCreate} />}
           {gameState === 'guessing' && <GuessInput socket={socket} options={gameData?.options || []} question={gameData?.question} />}
-          {gameState === 'judgment' && <JudgmentBox socket={socket} judgments={judgments} />}
 
         </section>
         <aside>
           <ChatBox socket={socket} user={user} />
         </aside>
       </main>
+      {currentDare && <DareModal dare={currentDare} onClose={() => setCurrentDare(null)} />}
       {showDifficultyModal && <DifficultyModal onSelect={handleAiGame} onCancel={() => setShowDifficultyModal(false)} />}
       {showAchievements && <AchievementsModal onClose={() => setShowAchievements(false)} unlockedAchievements={unlockedAchievements} />}
       {sidebar && <Sidebar players={players} onClose={() => setSidebar(false)} />}
-      {showShop && <ShopModal onClose={() => setShowShop(false)} user={user} players={players} />}
+      {showShop && <ShopModal onClose={() => setShowShop(false)} />}
       <Toast msg={toast} onClear={() => setToast('')} />
     </motion.div>
   );

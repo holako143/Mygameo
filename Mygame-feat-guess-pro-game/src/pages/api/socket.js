@@ -1,5 +1,5 @@
 import { Server } from 'socket.io';
-import judgmentsData from '../../../public/judgments.json';
+import dares from '../../lib/dares';
 import aiQuestions from '../../lib/aiQuestions';
 
 // Simple in-memory store for rooms and game state.
@@ -24,8 +24,8 @@ const SocketHandler = (req, res) => {
           rooms[room] = { players: {}, game: null };
         }
 
-        // For guests, points are tracked only in memory for the current session.
-        rooms[room].players[socket.id] = { ...user, id: socket.id, points: 0, bravePoints: 0, language };
+        // Player data now includes points for the session
+        rooms[room].players[socket.id] = { ...user, id: socket.id, language, points: 0 };
 
         io.to(room).emit('players', Object.values(rooms[room].players));
         console.log(`${user.name} joined room: ${room}`);
@@ -38,9 +38,8 @@ const SocketHandler = (req, res) => {
           rooms[room].players[aiId] = {
             id: aiId,
             name: `AI (${difficulty})`,
-            points: 0,
-            bravePoints: 0,
             image: `https://i.pravatar.cc/150?u=ai-player`,
+            points: 0
           };
           io.to(room).emit('players', Object.values(rooms[room].players));
 
@@ -106,13 +105,16 @@ const SocketHandler = (req, res) => {
             loser = guesser;
           }
 
-          const pointsWon = (winner === guesser) ? 10 : 5;
+          const pointsWon = 10; // Fixed points for winning
           winner.points += pointsWon;
 
-          const randomJudgments = [...judgmentsData].sort(() => 0.5 - Math.random()).slice(0, 3);
+          // Select a dare based on the loser's language
+          const loserLanguage = loser.language || 'en';
+          const dareList = dares[loserLanguage];
+          const randomDare = dareList[Math.floor(Math.random() * dareList.length)];
 
           io.to(winner.id).emit('result', { msg: { key: 'youWon', params: { points: pointsWon } } });
-          io.to(loser.id).emit('result', { msg: { key: 'youLost' }, judgments: randomJudgments });
+          io.to(loser.id).emit('result', { msg: { key: 'youLost' }, dare: randomDare });
 
           rooms[room].game = null;
           io.to(room).emit('players', Object.values(players));
@@ -122,20 +124,6 @@ const SocketHandler = (req, res) => {
       // Handle a guess. Database operations are removed.
       socket.on('guess', ({ room, guess }) => {
         handleGuess(room, guess, socket.id);
-      });
-
-      // Handle judgment submission. Database operations are removed.
-      socket.on('submitJudgment', ({ room }) => {
-        if (rooms[room]) {
-          const player = rooms[room].players[socket.id];
-          if (!player) return;
-
-          player.bravePoints += 1;
-
-          io.to(socket.id).emit('judgmentDone');
-          io.to(socket.id).emit('result', { msg: { key: 'youEarnedBravePoint' } });
-          io.to(room).emit('players', Object.values(rooms[room].players));
-        }
       });
 
       // Handle chat messages

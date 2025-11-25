@@ -1,11 +1,13 @@
 import Image from 'next/image';
 import { useContext } from 'react';
 import { LanguageContext } from '@/pages/_app';
+import { usePlayer } from '@/context/PlayerContext';
 
 // The Header component is now simplified for guest mode.
 // It no longer needs session-specific functions like signOut.
 export default function Header({ user, onMenu, onShop, onAchievements }) {
   const { language, setLanguage, t } = useContext(LanguageContext);
+  const { points } = usePlayer();
 
   const handleLanguageChange = () => {
     setLanguage(language === 'en' ? 'ar' : 'en');
@@ -23,6 +25,9 @@ export default function Header({ user, onMenu, onShop, onAchievements }) {
           {language === 'en' ? 'العربية' : 'English'}
         </button>
         <button onClick={onAchievements} className="btn-primary">{t('achievements')}</button>
+        <div className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-full">
+          <span className="text-yellow-400">{points} {t('points')}</span>
+        </div>
         <button onClick={onShop} className="btn-primary">{t('shop')}</button>
         <div className="flex items-center gap-2">
             {/* Display the guest user's randomly generated image */}
