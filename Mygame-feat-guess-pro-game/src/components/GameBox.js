@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import { LanguageContext } from '@/pages/_app';
 
 export default function GameBox({ socket, user, onCancel }) {
+  const { t } = useContext(LanguageContext);
   const [options, setOptions] = useState(['', '', '']);
   const [correct, setCorrect] = useState(0);
   const [error, setError] = useState('');
@@ -8,7 +10,7 @@ export default function GameBox({ socket, user, onCancel }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (options.some(opt => !opt.trim())) {
-      setError('Please fill in all options.');
+      setError(t('fillAllOptions'));
       return;
     }
     setError('');
@@ -24,8 +26,8 @@ export default function GameBox({ socket, user, onCancel }) {
 
   return (
     <div className="card">
-      <h2 className="text-lg font-bold mb-4 neon">Create a New Game</h2>
-      <p className="mb-4 text-gray-400">Enter three options and select the correct one. The other player will have to guess it.</p>
+      <h2 className="text-lg font-bold mb-4 neon">{t('createANewGame')}</h2>
+      <p className="mb-4 text-gray-400">{t('enterThreeOptions')}</p>
       <form onSubmit={handleSubmit}>
         {options.map((opt, i) => (
           <div key={i} className="flex items-center mb-2">
@@ -40,16 +42,16 @@ export default function GameBox({ socket, user, onCancel }) {
               value={opt}
               onChange={(e) => handleOptionChange(i, e.target.value)}
               className="w-full bg-gray-700 p-2 rounded border border-gray-600 focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder={`Option ${i + 1}`}
+              placeholder={`${t('option')} ${i + 1}`}
             />
           </div>
         ))}
         {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
         <div className="flex justify-end gap-4 mt-4">
             <button type="button" onClick={onCancel} className="bg-gray-600 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition">
-                Cancel
+                {t('cancel')}
             </button>
-            <button type="submit" className="btn-primary">Start Game</button>
+            <button type="submit" className="btn-primary">{t('startGame')}</button>
         </div>
       </form>
     </div>

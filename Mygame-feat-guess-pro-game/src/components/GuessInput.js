@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
+import { LanguageContext } from '@/pages/_app';
 
-export default function GuessInput({ socket, options }) {
+export default function GuessInput({ socket, options, question }) {
+  const { t, language } = useContext(LanguageContext);
   const [selected, setSelected] = useState(null);
   const [submitted, setSubmitted] = useState(false);
 
@@ -16,8 +18,8 @@ export default function GuessInput({ socket, options }) {
 
   return (
     <div className="card text-center">
-      <h2 className="text-2xl font-bold mb-4 neon">It&apos;s Guessing Time!</h2>
-      <p className="mb-6 text-gray-400">One of these is the correct answer. Choose wisely.</p>
+      <h2 className="text-2xl font-bold mb-4 neon">{question ? (language === 'ar' ? question.question.ar : question.question.en) : t('guessingTime')}</h2>
+      <p className="mb-6 text-gray-400">{t('chooseWisely')}</p>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {options.map((opt, i) => (
           <button
@@ -32,7 +34,7 @@ export default function GuessInput({ socket, options }) {
           </button>
         ))}
       </div>
-       {submitted && <p className="mt-4 text-yellow-400">Waiting for result...</p>}
+       {submitted && <p className="mt-4 text-yellow-400">{t('waitingForResult')}</p>}
     </div>
   );
 }

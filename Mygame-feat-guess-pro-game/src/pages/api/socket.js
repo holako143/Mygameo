@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
 import judgmentsData from '../../../public/judgments.json';
+import aiQuestions from '../../lib/aiQuestions';
 
 // Simple in-memory store for rooms and game state.
 // This will reset every time the server restarts.
@@ -17,14 +18,14 @@ const SocketHandler = (req, res) => {
       console.log(`User connected: ${socket.id}`);
 
       // Join a room with guest user data
-      socket.on('joinRoom', ({ room, user }) => {
+      socket.on('joinRoom', ({ room, user, language }) => {
         socket.join(room);
         if (!rooms[room]) {
           rooms[room] = { players: {}, game: null };
         }
 
         // For guests, points are tracked only in memory for the current session.
-        rooms[room].players[socket.id] = { ...user, id: socket.id, points: 0, bravePoints: 0 };
+        rooms[room].players[socket.id] = { ...user, id: socket.id, points: 0, bravePoints: 0, language };
 
         io.to(room).emit('players', Object.values(rooms[room].players));
         console.log(`${user.name} joined room: ${room}`);
@@ -44,11 +45,12 @@ const SocketHandler = (req, res) => {
           io.to(room).emit('players', Object.values(rooms[room].players));
 
           // AI creates the game
-          // TODO: Generate more interesting options
-          const options = ['A', 'B', 'C'];
-          const correct = Math.floor(Math.random() * 3);
-          rooms[room].game = { options, correct, creatorId: aiId };
-          socket.emit('newGame', { options, creatorId: aiId });
+          const question = aiQuestions[Math.floor(Math.random() * aiQuestions.length)];
+          const player = rooms[room].players[socket.id];
+          const options = player.language === 'ar' ? question.options.ar : question.options.en;
+          const correct = question.correct;
+          rooms[room].game = { options, correct, creatorId: aiId, question };
+          socket.emit('newGame', { options, creatorId: aiId, question });
         }
       });
 
@@ -109,8 +111,8 @@ const SocketHandler = (req, res) => {
 
           const randomJudgments = [...judgmentsData].sort(() => 0.5 - Math.random()).slice(0, 3);
 
-          io.to(winner.id).emit('result', { msg: `You won! You get ${pointsWon} points.` });
-          io.to(loser.id).emit('result', { msg: 'You lost! Choose a judgment.', judgments: randomJudgments });
+          io.to(winner.id).emit('result', { msg: { key: 'youWon', params: { points: pointsWon } } });
+          io.to(loser.id).emit('result', { msg: { key: 'youLost' }, judgments: randomJudgments });
 
           rooms[room].game = null;
           io.to(room).emit('players', Object.values(players));
@@ -131,7 +133,7 @@ const SocketHandler = (req, res) => {
           player.bravePoints += 1;
 
           io.to(socket.id).emit('judgmentDone');
-          io.to(socket.id).emit('result', { msg: 'You earned a Brave Point!' });
+          io.to(socket.id).emit('result', { msg: { key: 'youEarnedBravePoint' } });
           io.to(room).emit('players', Object.values(rooms[room].players));
         }
       });
