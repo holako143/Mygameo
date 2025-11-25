@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useContext } from 'react';
+import { LanguageContext } from '@/pages/_app';
 
 export default function ChatBox({ socket, user }) {
+  const { t } = useContext(LanguageContext);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef(null);
@@ -30,7 +32,7 @@ export default function ChatBox({ socket, user }) {
 
   return (
     <div className="card h-full flex flex-col">
-      <h2 className="text-lg font-bold mb-4 neon">Live Chat</h2>
+      <h2 className="text-lg font-bold mb-4 neon">{t('liveChat')}</h2>
       <div className="flex-grow h-64 overflow-y-auto mb-4 pr-2">
         {messages.map((m, i) => (
           <p key={i} className="mb-2">
